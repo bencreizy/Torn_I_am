@@ -2,18 +2,31 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Great Inversion | Neon Monolith</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { margin: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }
+        canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
         #controls { 
             position: absolute; top: 20px; left: 20px; 
             background: rgba(0, 0, 0, 0.9); padding: 12px; 
             border-radius: 5px; border: 1px solid #ff0000;
             color: #ff0000; font-family: monospace;
             pointer-events: all;
+            z-index: 10;
             box-shadow: 0 0 15px #ff0000;
         }
         input[type=range] { width: 120px; accent-color: #ff0000; cursor: pointer; }
+        #error-msg {
+            display: none;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #ff4444; font-family: monospace; font-size: 16px;
+            text-align: center; padding: 30px;
+            border: 1px solid #ff4444; border-radius: 8px;
+            background: rgba(0,0,0,0.9);
+            z-index: 20;
+        }
     </style>
 </head>
 <body>
@@ -21,92 +34,160 @@
         <label>NEON FLOW</label><br>
         <input type="range" id="speedSlider" min="1" max="100" value="15">
     </div>
+    <div id="error-msg"></div>
 
 <script type="module">
-    import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
-    import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
+    // Use multiple CDN fallbacks for reliability
+    let THREE, OrbitControls;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+    async function loadDependencies() {
+        const cdnSources = [
+            {
+                three: 'https://unpkg.com/three@0.160.0/build/three.module.js',
+                orbit: 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js'
+            },
+            {
+                three: 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
+                orbit: 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js'
+            },
+            {
+                three: 'https://cdn.skypack.dev/three@0.136.0',
+                orbit: 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js'
+            }
+        ];
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    camera.position.set(18, 12, 18);
-    controls.enableDamping = true;
+        for (const cdn of cdnSources) {
+            try {
+                const threeModule = await import(cdn.three);
+                THREE = threeModule;
+                const orbitModule = await import(cdn.orbit);
+                OrbitControls = orbitModule.OrbitControls;
+                console.log('Loaded Three.js from:', cdn.three);
+                return true;
+            } catch (e) {
+                console.warn('CDN failed:', cdn.three, e.message);
+            }
+        }
+        return false;
+    }
 
-    const count = 15000;
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
+    function showError(msg) {
+        const el = document.getElementById('error-msg');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
 
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    // Check WebGL support
+    function checkWebGL() {
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            return !!gl;
+        } catch (e) {
+            return false;
+        }
+    }
 
-    const material = new THREE.PointsMaterial({
-        size: 0.035,
-        vertexColors: true,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        opacity: 0.8
-    });
-
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
-
-    let time = 0;
-    const speedSlider = document.getElementById('speedSlider');
-
-    function animate() {
-        requestAnimationFrame(animate);
-        const flowRate = speedSlider.value * 0.0001;
-        time += flowRate;
-        const pos = geometry.attributes.position.array;
-        const cols = geometry.attributes.color.array;
-
-        // The untouched Solo Inversion engine
-        const pulse = Math.sin(time * 2) * 0.05 + 1; 
-
-        for (let i = 0; i < count; i++) {
-            const i3 = i * 3;
-            let progress = (i / count + time * 4) % 1;
-            const spiralStep = (i / count) * Math.PI * 2 * 13; 
-            const circleStep = progress * Math.PI * 2;
-            
-            const radius = 7 * pulse; 
-            const x = (radius + radius * Math.cos(circleStep)) * Math.cos(spiralStep);
-            const z = (radius + radius * Math.sin(circleStep)) * Math.sin(spiralStep);
-            const y = radius * Math.sin(circleStep);
-
-            pos[i3] = x;
-            pos[i3 + 1] = y;
-            pos[i3 + 2] = z;
-
-            const dist = Math.sqrt(x*x + y*y + z*z);
-            const hotZone = Math.pow(1.0 - (dist / 14), 2);
-            
-            // Logic-driven Neon coloring
-            // Red = High convergence (Inverting) | Cyan = Wide distribution (Expanded)
-            cols[i3] = 0.2 + hotZone * 0.8;      
-            cols[i3 + 1] = 0.6 * (1 - hotZone);  
-            cols[i3 + 2] = 0.9 * (1 - hotZone) + (hotZone * 0.1); 
+    async function init() {
+        if (!checkWebGL()) {
+            showError('WebGL is not supported by your browser. Please use a modern browser.');
+            return;
         }
 
-        geometry.attributes.position.needsUpdate = true;
-        geometry.attributes.color.needsUpdate = true;
-        points.rotation.y += 0.001;
-        controls.update();
-        renderer.render(scene, camera);
-    }
-    animate();
+        const loaded = await loadDependencies();
+        if (!loaded) {
+            showError('Failed to load 3D libraries. Please check your connection and refresh.');
+            return;
+        }
 
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 1);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        camera.position.set(18, 12, 18);
+        controls.enableDamping = true;
+
+        const count = 15000;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+        const colors = new Float32Array(count * 3);
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.035,
+            vertexColors: true,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            opacity: 0.8
+        });
+
+        const points = new THREE.Points(geometry, material);
+        scene.add(points);
+
+        let time = 0;
+        const speedSlider = document.getElementById('speedSlider');
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const flowRate = speedSlider.value * 0.0001;
+            time += flowRate;
+            const pos = geometry.attributes.position.array;
+            const cols = geometry.attributes.color.array;
+
+            // The untouched Solo Inversion engine
+            const pulse = Math.sin(time * 2) * 0.05 + 1; 
+
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+                let progress = (i / count + time * 4) % 1;
+                const spiralStep = (i / count) * Math.PI * 2 * 13; 
+                const circleStep = progress * Math.PI * 2;
+                
+                const radius = 7 * pulse; 
+                const x = (radius + radius * Math.cos(circleStep)) * Math.cos(spiralStep);
+                const z = (radius + radius * Math.sin(circleStep)) * Math.sin(spiralStep);
+                const y = radius * Math.sin(circleStep);
+
+                pos[i3] = x;
+                pos[i3 + 1] = y;
+                pos[i3 + 2] = z;
+
+                const dist = Math.sqrt(x*x + y*y + z*z);
+                const hotZone = Math.pow(1.0 - (dist / 14), 2);
+                
+                // Logic-driven Neon coloring
+                // Red = High convergence (Inverting) | Cyan = Wide distribution (Expanded)
+                cols[i3] = 0.2 + hotZone * 0.8;      
+                cols[i3 + 1] = 0.6 * (1 - hotZone);  
+                cols[i3 + 2] = 0.9 * (1 - hotZone) + (hotZone * 0.1); 
+            }
+
+            geometry.attributes.position.needsUpdate = true;
+            geometry.attributes.color.needsUpdate = true;
+            points.rotation.y += 0.001;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    }
+
+    init().catch(err => {
+        console.error('Initialization failed:', err);
+        showError('Initialization failed: ' + err.message);
     });
 </script>
 </body>
-</html>
 </html>
