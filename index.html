@@ -445,16 +445,18 @@
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-            const material = new THREE.PointsMaterial({
-                size: 0.09,
+            // SWAP POINTS FOR LINE MATERIAL TO REVEAL THE TRUE CURVE
+            const material = new THREE.LineBasicMaterial({
                 vertexColors: true,
                 transparent: true,
                 blending: THREE.AdditiveBlending,
-                opacity: 1.0
+                opacity: 0.6,
+                linewidth: 1 // Note: standard WebGL only supports 1px, but it creates a "silk" effect
             });
 
-            const points = new THREE.Points(geometry, material);
-            scene.add(points);
+            // CONNECT THE DOTS: This treats the solo inversion as a continuous thread
+            const lineSystem = new THREE.Line(geometry, material);
+            scene.add(lineSystem);
 
             let time = 0;
             const speedSlider = document.getElementById('speedSlider');
@@ -500,7 +502,7 @@
 
                 geometry.attributes.position.needsUpdate = true;
                 geometry.attributes.color.needsUpdate = true;
-                points.rotation.y += 0.001;
+                lineSystem.rotation.y += 0.001;
                 controls.update();
                 renderer.render(scene, camera);
             }
