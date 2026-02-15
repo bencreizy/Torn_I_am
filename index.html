@@ -204,16 +204,15 @@
                     const dist = Math.sqrt(x * x + y * y + z * z);
                     const hotZone = Math.pow(1.0 - (dist / 14), 2);
 
-                    // Neon coloring: Red (inverted/outer) ↔ Cyan (non-inverted/inner)
+                    // Both colors span full length, each brighter at its own end
                     // hotZone: 1 = singularity center, 0 = outer edge
                     const t = hotZone;
-                    // Red glows brighter at outer edge, cyan glows brighter at singularity
-                    const redGlow = 0.5 + 0.5 * (1 - t);    // 0.5–1.0, brightest outer
-                    const cyanGlow = 0.5 + 0.5 * t;          // 0.5–1.0, brightest center
+                    const redBright = 0.3 + 0.7 * (1 - t);  // 0.3–1.0, brightest at outer edge
+                    const cyanBright = 0.3 + 0.7 * t;         // 0.3–1.0, brightest at singularity
 
-                    cols[i3] = (1 - t) * redGlow;         // R: strong red fading inward
-                    cols[i3 + 1] = t * cyanGlow * 0.85;       // G: cyan component near center
-                    cols[i3 + 2] = t * cyanGlow;              // B: full cyan/blue near center
+                    cols[i3] = redBright;                  // R: always present, glows outer
+                    cols[i3 + 1] = cyanBright * 0.85;          // G: cyan always present, glows center
+                    cols[i3 + 2] = cyanBright;                 // B: cyan always present, glows center
                 }
 
                 geometry.attributes.position.needsUpdate = true;
