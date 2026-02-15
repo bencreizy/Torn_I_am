@@ -1,0 +1,134 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The Great Inversion | Universal Pulse</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; }
+        #controls { 
+            position: absolute; top: 20px; left: 20px; 
+            background: rgba(0, 0, 0, 0.8); padding: 12px; 
+            border-radius: 5px; border: 1px solid #333;
+            color: #ff3333; font-family: monospace;
+            pointer-events: all;
+        }
+        input[type=range] { width: 120px; accent-color: #ff3333; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+
+    <div id="controls">
+        <label>FLOW RATE</label><br>
+        <input type="range" id="speedSlider" min="1" max="100" value="15">
+    </div>
+
+
+<script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+    import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
+
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    camera.position.set(18, 12, 18);
+    controls.enableDamping = true;
+
+
+    const count = 15000;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+
+    const material = new THREE.PointsMaterial({
+        size: 0.035,
+        vertexColors: true,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        opacity: 0.8
+    });
+
+
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+
+
+    let time = 0;
+    const speedSlider = document.getElementById('speedSlider');
+
+
+    function animate() {
+        requestAnimationFrame(animate);
+        
+        const flowRate = speedSlider.value * 0.0001;
+        time += flowRate;
+        
+        const pos = geometry.attributes.position.array;
+        const cols = geometry.attributes.color.array;
+
+
+        // The "Breath" logic: rhythmic scaling of the whole system
+        const pulse = Math.sin(time * 2) * 0.05 + 1; 
+
+
+        for (let i = 0; i < count; i++) {
+            const i3 = i * 3;
+            let progress = (i / count + time * 4) % 1;
+            
+            const spiralStep = (i / count) * Math.PI * 2 * 13; 
+            const circleStep = progress * Math.PI * 2;
+            
+            // Core Logic: The path is the force
+            const radius = 7 * pulse; 
+            const x = (radius + radius * Math.cos(circleStep)) * Math.cos(spiralStep);
+            const z = (radius + radius * Math.sin(circleStep)) * Math.sin(spiralStep);
+            const y = radius * Math.sin(circleStep);
+
+
+            pos[i3] = x;
+            pos[i3 + 1] = y;
+            pos[i3 + 2] = z;
+
+
+            // COLOR INVERSION LOGIC
+            const dist = Math.sqrt(x*x + y*y + z*z);
+            const hotZone = Math.pow(1.0 - (dist / 14), 2);
+            
+            // Red at the center (Inversion), Blue at the edges (Expansion)
+            cols[i3] = 0.3 + hotZone * 0.7;   // Red channel high at center
+            cols[i3 + 1] = 0.1 + hotZone * 0.2; // Green low for pure colors
+            cols[i3 + 2] = 0.6 + (1 - hotZone) * 0.4; // Blue high at edges
+        }
+
+
+        geometry.attributes.position.needsUpdate = true;
+        geometry.attributes.color.needsUpdate = true;
+        
+        points.rotation.y += 0.001;
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+
+    animate();
+
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+</body>
+</html>
