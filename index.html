@@ -455,8 +455,15 @@
             });
 
             // CONNECT THE DOTS: This treats the solo inversion as a continuous thread
+            // Triple thickness via layered lines (WebGL caps LineBasicMaterial at 1px)
             const lineSystem = new THREE.Line(geometry, material);
+            const lineLayer2 = new THREE.Line(geometry, material);
+            const lineLayer3 = new THREE.Line(geometry, material);
+            lineLayer2.scale.set(1.003, 1.003, 1.003);
+            lineLayer3.scale.set(0.997, 0.997, 0.997);
             scene.add(lineSystem);
+            scene.add(lineLayer2);
+            scene.add(lineLayer3);
 
             let time = 0;
             const speedSlider = document.getElementById('speedSlider');
@@ -503,6 +510,8 @@
                 geometry.attributes.position.needsUpdate = true;
                 geometry.attributes.color.needsUpdate = true;
                 lineSystem.rotation.y += 0.001;
+                lineLayer2.rotation.y += 0.001;
+                lineLayer3.rotation.y += 0.001;
                 controls.update();
                 renderer.render(scene, camera);
             }
